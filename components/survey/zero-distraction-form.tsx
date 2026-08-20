@@ -184,6 +184,8 @@ const REASON_OPTIONS_V2: Choice[] = [
   { id: "inherited",        label: "Inherited property",                          icon: Gift },
   { id: "divorce",          label: "Divorce or separation",                       icon: Split },
   { id: "repairs",          label: "Can't afford repairs",                        icon: Hammer },
+  { id: "relocation",       label: "Job relocation",                              icon: Plane },
+  { id: "downsizing",       label: "Downsizing",                                  icon: Shrink },
   { id: "vacant",           label: "Vacant property I need to sell",              icon: Home },
   { id: "urgent-financial", label: "Urgent financial situation not listed above", icon: AlertCircle },
   { id: "personal",         label: "Personal situation not listed above",         icon: HelpCircle },
