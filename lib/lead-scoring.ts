@@ -73,6 +73,7 @@ const REASON_WEIGHTS: Record<string, number> = {
   "vacant":            9,
   "personal":          5,
   "no-reason":         0,
+  "downsizing":        8,
 }
 
 const CONDITION_WEIGHTS: Record<string, number> = {
