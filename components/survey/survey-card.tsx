@@ -82,7 +82,9 @@ const REASON_OPTIONS_V2 = [
   { id: "repairs", label: "Can't afford repairs" },
   { id: "vacant", label: "Vacant property I need to sell" },
   { id: "urgent-financial", label: "Urgent financial situation not listed above" },
-  { id: "personal", label: "Personal situation not listed above" },
+  { id: "relocation", label: "Relocation / due to job" },
+  { id: "downsizing", label: "Relocation / downsizing" },
+  { id: "other", label: "Other reason not listed" },
   { id: "no-reason", label: "No reason / seeing what my house is worth" },
 ]
 
