@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server"
+import config from "@/lib/config"
+
+const FORM_SLUG =
+  (config.companyName || "landing").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-survey"
+const FORM_TITLE = `${config.companyName} Survey`
 
 // Simple in-memory rate limiter (resets on deploy/restart)
 const submissionLog = new Map<string, { count: number; firstSubmit: number }>()
@@ -51,7 +56,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid email" }, { status: 400 })
     }
 
-    if (!(data.name || "").trim()) {
+    // Support both firstName/lastName (new) and name (legacy)
+    if (!(data.firstName || data.name || "").trim()) {
       return NextResponse.json({ success: false, error: "Name required" }, { status: 400 })
     }
 
@@ -72,9 +78,6 @@ export async function POST(request: Request) {
     }
 
     // --- GoFunnel external webhook: forward the lead for gf_sid attribution ---
-    // Env-var-driven (shared template): each deployment sets its own creds. When
-    // GOFUNNEL_WEBHOOK_CREDENTIAL_ID / _SECRET are unset, the forward is skipped,
-    // so this is a no-op until a deployment opts in.
     try {
       const GF_CREDENTIAL_ID = process.env.GOFUNNEL_WEBHOOK_CREDENTIAL_ID || ""
       const GF_BEARER = process.env.GOFUNNEL_WEBHOOK_SECRET || ""
@@ -91,8 +94,8 @@ export async function POST(request: Request) {
           firstName: gfStr(data.firstName) || gfName[0] || undefined,
           lastName: gfStr(data.lastName) || (gfName.length > 1 ? gfName.slice(1).join(" ") : undefined),
           sid: gfSid || undefined,
-          formId: "rei-survey-template",
-          formTitle: `${process.env.COMPANY_NAME || "REI"} Survey`,
+          formId: FORM_SLUG,
+          formTitle: FORM_TITLE,
           idempotencyKey: gfStr(data.meta_event_id),
           leadQuestions: {
             is_legal_owner: gfStr(data.isLegalOwner),

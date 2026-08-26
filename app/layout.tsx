@@ -10,8 +10,27 @@ import "./globals.css"
 const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: config.metaTitle,
-  description: config.metaDescription,
+  title: config.metaTitle || `${config.companyName} | Sell Your House Fast For Cash`,
+  description:
+    config.metaDescription ||
+    "Get a fair cash offer for your home in 24 hours. No fees, no repairs.",
+  icons: {
+    icon: [
+      {
+        url: "/icon-light-32x32.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/icon-dark-32x32.png",
+        media: "(prefers-color-scheme: dark)",
+      },
+      {
+        url: "/icon.svg",
+        type: "image/svg+xml",
+      },
+    ],
+    apple: "/apple-icon.png",
+  },
 }
 
 export default function RootLayout({
@@ -19,18 +38,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const accent = config.accentColor
-
   return (
     <html lang="en">
-      <head>
-        {/* Inject brand accent color as CSS variable — used as var(--accent) throughout */}
-        <style dangerouslySetInnerHTML={{
-          __html: config.useIbuykcStyle
-            ? `:root { --accent: ${accent}; --primary: ${accent}; --primary-foreground: oklch(0.985 0 0); --background: #f9fafb; }`
-            : `:root { --accent: ${accent}; --primary: ${accent}; --primary-foreground: oklch(0.985 0 0); --background: ${accent}; }`
-        }} />
-      </head>
       <body className={`font-sans antialiased ${plusJakartaSans.className}`}>
         <GoFunnelTracking />
         <FacebookPixel />
