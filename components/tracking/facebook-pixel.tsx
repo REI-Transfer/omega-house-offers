@@ -3,7 +3,6 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 
-// Read pixel ID from NEXT_PUBLIC_ env var — empty string = pixel disabled
 const FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID || ""
 
 declare global {
@@ -17,36 +16,32 @@ export function FacebookPixel() {
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!FB_PIXEL_ID) return // Pixel not configured — skip
+    if (!FB_PIXEL_ID) return
+    if (window.fbq) return
 
-    if (window.fbq) return // Already loaded
-
-    const fbq = function (...args: unknown[]) {
-      ;(fbq as any).callMethod
-        ? (fbq as any).callMethod(...args)
-        : (fbq as any).queue.push(args)
-    }
-    ;(fbq as any).push = fbq
-    ;(fbq as any).loaded = true
-    ;(fbq as any).version = "2.0"
-    ;(fbq as any).queue = []
-    window.fbq = fbq
-    window._fbq = fbq
-
-    const s = document.createElement("script")
-    s.async = true
-    s.src = "https://connect.facebook.net/en_US/fbevents.js"
-    document.getElementsByTagName("script")[0]?.parentNode?.insertBefore(
-      s,
-      document.getElementsByTagName("script")[0]
-    )
+    const n = (window.fbq = function () {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, prefer-rest-params
+      n.callMethod ? n.callMethod.apply(n, arguments as any) : n.queue.push(arguments)
+    } as any)
+    if (!window._fbq) window._fbq = n
+    n.push = n
+    n.loaded = !0
+    n.version = "2.0"
+    n.queue = []
+    const t = document.createElement("script")
+    t.async = true
+    t.src = "https://connect.facebook.net/en_US/fbevents.js"
+    const s = document.getElementsByTagName("script")[0]
+    s?.parentNode?.insertBefore(t, s)
 
     window.fbq("init", FB_PIXEL_ID)
   }, [])
 
   useEffect(() => {
     if (!FB_PIXEL_ID) return
-    if (window.fbq) window.fbq("track", "PageView")
+    if (window.fbq) {
+      window.fbq("track", "PageView")
+    }
   }, [pathname])
 
   if (!FB_PIXEL_ID) return null
