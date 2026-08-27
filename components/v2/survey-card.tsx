@@ -112,7 +112,7 @@ function calculateLeadScore(d: SurveyData): number {
   return Math.min(10, t + o + r + c)
 }
 function isQualifiedForMeta(d: SurveyData): boolean {
-  const okType = d.propertyType === 'single-family' || d.propertyType === 'multi-family'
+  const okType = d.propertyType === 'single-family' || d.propertyType === 'multi-family' || d.propertyType === 'land'
   const okListed = d.listedOnMarket === 'not-listed'
   const okOwner = d.isLegalOwner !== 'no'
   return okType && okListed && okOwner
@@ -123,7 +123,7 @@ function leadQuality(score: number): 'premium' | 'standard' | 'low' {
   return 'low'
 }
 function disqualifyReasonFor(d: SurveyData): string {
-  if (d.propertyType !== 'single-family' && d.propertyType !== 'multi-family') return 'property_type'
+  if (d.propertyType !== 'single-family' && d.propertyType !== 'multi-family' && d.propertyType !== 'land') return 'property_type'
   if (d.listedOnMarket !== 'not-listed') return 'listed'
   if (d.isLegalOwner === 'no') return 'not_owner'
   if (d.condition === 'excellent') return 'excellent_condition'
@@ -352,8 +352,8 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
   const handleOptionSelect = (field: keyof SurveyData, value: string) => {
     setSurveyData({ ...surveyData, [field]: value })
 
-    // Disqualify: property type (condo, mobile home, land, other — townhouse still qualifies)
-    if (field === "propertyType" && ["condo", "mobile-home", "land", "other"].includes(value)) {
+    // Disqualify: property type (condo, mobile home, other — townhouse and land still qualify)
+    if (field === "propertyType" && ["condo", "mobile-home", "other"].includes(value)) {
       setTimeout(() => { setDisqualifyReason("propertyType"); setIsDisqualified(true) }, 300)
       return
     }
