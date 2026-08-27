@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { CheckCircle2, Phone, Clock, Shield } from "lucide-react"
 import { FooterLinks } from "@/components/polar/footer-links"
-import { LeadEvent } from "@/components/tracking/lead-event"
 import type { Brand } from "@/lib/brand"
 
 // Optional media/book-offer env (per-client, disabled by default).
@@ -169,7 +168,6 @@ export function ThankYouContent({ brand }: { brand: Brand }) {
         <FooterLinks brand={brand} />
       </div>
 
-      <LeadEvent />
     </main>
   )
 }
