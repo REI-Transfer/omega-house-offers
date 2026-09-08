@@ -82,6 +82,8 @@ const REASON_OPTIONS = [
   { id: "relocation", label: "Job relocation" },
   { id: "downsizing", label: "Downsizing" },
   { id: "repairs", label: "Can't afford repairs" },
+  { id: "landlord", label: "Tired Landlord" },
+  { id: "non-performing-tenants", label: "Non-performing tenants" },
   { id: "other", label: "Other" },
 ]
 
@@ -96,7 +98,7 @@ const SCORE_OWNERSHIP: Record<string, number> = {
 }
 const SCORE_REASON: Record<string, number> = {
   'foreclosure': 3, 'behind-payments': 3,
-  'inherited': 2, 'repairs': 2,
+  'inherited': 2, 'repairs': 2, 'landlord': 2, 'non-performing-tenants': 2,
   'other': 1,
   'relocation': 0, 'divorce': 0, 'downsizing': 0,
 }
@@ -112,7 +114,7 @@ function calculateLeadScore(d: SurveyData): number {
   return Math.min(10, t + o + r + c)
 }
 function isQualifiedForMeta(d: SurveyData): boolean {
-  const okType = d.propertyType === 'single-family' || d.propertyType === 'multi-family' || d.propertyType === 'land'
+  const okType = d.propertyType === 'single-family' || d.propertyType === 'multi-family' || d.propertyType === 'land' || d.propertyType === 'condo' || d.propertyType === 'townhouse'
   const okListed = d.listedOnMarket === 'not-listed'
   const okOwner = d.isLegalOwner !== 'no'
   return okType && okListed && okOwner
@@ -123,7 +125,7 @@ function leadQuality(score: number): 'premium' | 'standard' | 'low' {
   return 'low'
 }
 function disqualifyReasonFor(d: SurveyData): string {
-  if (d.propertyType !== 'single-family' && d.propertyType !== 'multi-family' && d.propertyType !== 'land') return 'property_type'
+  if (d.propertyType !== 'single-family' && d.propertyType !== 'multi-family' && d.propertyType !== 'land' && d.propertyType !== 'condo' && d.propertyType !== 'townhouse') return 'property_type'
   if (d.listedOnMarket !== 'not-listed') return 'listed'
   if (d.isLegalOwner === 'no') return 'not_owner'
   if (d.condition === 'excellent') return 'excellent_condition'
@@ -352,8 +354,8 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
   const handleOptionSelect = (field: keyof SurveyData, value: string) => {
     setSurveyData({ ...surveyData, [field]: value })
 
-    // Disqualify: property type (condo, mobile home, other — townhouse and land still qualify)
-    if (field === "propertyType" && ["condo", "mobile-home", "other"].includes(value)) {
+    // Disqualify: property type (mobile home, other — single/multi-family, land, condo and townhouse all qualify)
+    if (field === "propertyType" && ["mobile-home", "other"].includes(value)) {
       setTimeout(() => { setDisqualifyReason("propertyType"); setIsDisqualified(true) }, 300)
       return
     }
@@ -439,7 +441,7 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
       propertyType: {
         title: "We're Unable to Assist",
         message: "Unfortunately, we're not able to make an offer on this type of property at this time.",
-        detail: "We primarily purchase single-family homes, multi-family properties, and townhouses. If you have a different property you'd like to sell, feel free to reach out.",
+        detail: "We primarily purchase single-family homes, multi-family properties, condos, and townhouses. If you have a different property you'd like to sell, feel free to reach out.",
       },
       excellentCondition: {
         title: "This May Not Be the Right Fit",
