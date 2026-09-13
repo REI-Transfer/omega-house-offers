@@ -91,6 +91,13 @@ const REASON_OPTIONS = [
 const SCORE_TIMELINE: Record<string, number> = {
   'asap': 3, '2-weeks': 2, '30-days': 1, '60-days': 0, 'flexible': 0,
 }
+// Low-intent timelines are a SOFT-DQ (like excellent condition): the lead still
+// submits and posts to the CRM, but the Meta pixel fires LeadLowIntent instead of
+// Lead. Config-driven via NEXT_PUBLIC_LOW_INTENT_TIMELINES (comma list of timeline
+// ids); defaults to "flexible". Set to "" to disable.
+const LOW_INTENT_TIMELINES = (process.env.NEXT_PUBLIC_LOW_INTENT_TIMELINES ?? 'flexible')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+
 const SCORE_OWNERSHIP: Record<string, number> = {
   '10-plus-years': 3, '5-10-years': 1, '3-5-years': 0, '1-3-years': 0,
   // inherited: exempt from the ownership hard-DQ; scored 3 (matches Elevate v2.51).
@@ -129,6 +136,7 @@ function disqualifyReasonFor(d: SurveyData): string {
   if (d.listedOnMarket !== 'not-listed') return 'listed'
   if (d.isLegalOwner === 'no') return 'not_owner'
   if (d.condition === 'excellent') return 'excellent_condition'
+  if (LOW_INTENT_TIMELINES.includes(d.timeline)) return 'timeline_flexible'
   return 'unknown'
 }
 // ──────────────────────────────────────────────────────────────────────
@@ -265,7 +273,7 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
         // Excellent / move-in-ready condition is NOT a Meta-qualifying lead:
         // capture it for the client, but never fire the real "Lead" pixel event.
         const isExcellentCondition = surveyData.condition === 'excellent'
-        const qualified = isQualifiedForMeta(surveyData) && (excellentPass || !isExcellentCondition)
+        const qualified = isQualifiedForMeta(surveyData) && (excellentPass || !isExcellentCondition) && !LOW_INTENT_TIMELINES.includes(surveyData.timeline)
         const dqReason = qualified ? null : disqualifyReasonFor(surveyData)
         const eventId = `lead-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
         const payload = {
