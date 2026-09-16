@@ -89,7 +89,7 @@ const REASON_OPTIONS = [
   { id: "downsizing", label: "Downsizing" },
   { id: "repairs", label: "Can't afford repairs" },
   { id: "landlord", label: "Tired Landlord" },
-  { id: "non-performing-tenants", label: "Non-performing tenants" },
+  { id: "financial-difficulty", label: "Financial Difficulty" },
   { id: "other", label: "Other" },
 ]
 
@@ -111,7 +111,7 @@ const SCORE_OWNERSHIP: Record<string, number> = {
 }
 const SCORE_REASON: Record<string, number> = {
   'foreclosure': 3, 'behind-payments': 3,
-  'inherited': 2, 'repairs': 2, 'landlord': 2, 'non-performing-tenants': 2,
+  'inherited': 2, 'repairs': 2, 'landlord': 2, 'financial-difficulty': 2,
   'other': 1,
   'relocation': 0, 'divorce': 0, 'downsizing': 0,
 }
