@@ -17,6 +17,7 @@ interface SurveyData {
   propertyType: string
   isLegalOwner: string
   ownershipLength: string
+  mortgageStatus: string
   listedOnMarket: string
   timeline: string
   condition: string
@@ -49,6 +50,11 @@ const OWNERSHIP_LENGTH_OPTIONS = [
   { id: "5-10-years", label: "5 to 10 years ago" },
   { id: "10-plus-years", label: "More than 10 years ago" },
   { id: "inherited", label: "I recently inherited it" },
+]
+
+const MORTGAGE_OPTIONS = [
+  { id: "no-mortgage", label: "No, it's owned free and clear" },
+  { id: "has-mortgage", label: "Yes, there's a mortgage on it" },
 ]
 
 const LISTED_OPTIONS = [
@@ -214,6 +220,7 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
     propertyType: "",
     isLegalOwner: "",
     ownershipLength: "",
+    mortgageStatus: "",
     listedOnMarket: "",
     timeline: "",
     condition: "",
@@ -237,6 +244,11 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
   const excellentSoftDq = process.env.NEXT_PUBLIC_EXCELLENT_CONDITION_SOFT_DQ === 'true'
   // Env-driven ownership-length hard-DQ. Default preserves v2's baked ['1-3-years','3-5-years'].
   const ownershipDq = (process.env.NEXT_PUBLIC_DISQUALIFIED_OWNERSHIP_LENGTHS || '1-3-years,3-5-years').split(',').map((x) => x.trim()).filter(Boolean)
+  // Omega: when ON, an under-5 ownership bucket (one in ownershipDq) reveals a mortgage
+  // question inline in Step 4 instead of hard-DQ'ing immediately — "no mortgage" (free &
+  // clear) passes, "has mortgage" hard-DQs as before. Default OFF = today's immediate
+  // hard-DQ, byte-identical for every other client and for Omega until the env is set.
+  const askMortgageUnder5 = process.env.NEXT_PUBLIC_ASK_MORTGAGE_UNDER_5 === 'true'
   useEffect(() => {
     getIPAddress().then((ip) => { trackingRef.current.ip = ip })
   }, [])
@@ -349,7 +361,7 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
       case 1: return surveyData.address.trim().length > 0 && addressVerified
       case 2: return surveyData.propertyType !== ""
       case 3: return surveyData.isLegalOwner !== ""
-      case 4: return surveyData.ownershipLength !== ""
+      case 4: return surveyData.ownershipLength !== "" && (!(askMortgageUnder5 && ownershipDq.includes(surveyData.ownershipLength)) || surveyData.mortgageStatus !== "")
       case 5: return surveyData.listedOnMarket !== ""
       case 6: return surveyData.timeline !== ""
       case 7: return surveyData.condition !== ""
@@ -382,8 +394,21 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
       setTimeout(() => { setDisqualifyReason("notOwner"); setIsDisqualified(true) }, 300)
       return
     }
-    // Default hard-DQ: short ownership (under ~5 years — real option ids: "1-3-years" = <3yr, "3-5-years" = 3-5yr)
+    // Short ownership (under ~5 years — real option ids: "1-3-years" = <3yr, "3-5-years" = 3-5yr).
     if (field === "ownershipLength" && ownershipDq.includes(value)) {
+      // Flag ON: reveal the inline mortgage question (Step 4). Don't advance, don't DQ yet —
+      // "no mortgage" (free & clear) will pass, "has mortgage" hard-DQs below. The question
+      // renders because ownershipDq.includes(ownershipLength); mirrors the inherited mechanism
+      // (passing = not being in the DQ set), no second special-case system.
+      if (askMortgageUnder5) return
+      // Flag OFF: today's immediate hard-DQ, unchanged.
+      setTimeout(() => { setDisqualifyReason("shortOwnership"); setIsDisqualified(true) }, 300)
+      return
+    }
+    // Mortgage follow-up — only reachable when the flag is ON and an under-5 bucket was picked.
+    // "has mortgage" hard-DQs (reusing the shortOwnership screen); "no mortgage" falls through
+    // to the normal advance below.
+    if (field === "mortgageStatus" && value === "has-mortgage") {
       setTimeout(() => { setDisqualifyReason("shortOwnership"); setIsDisqualified(true) }, 300)
       return
     }
@@ -604,6 +629,14 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
             <div className="flex flex-col gap-2">
               {OWNERSHIP_LENGTH_OPTIONS.map((option) => renderOptionButton(option, surveyData.ownershipLength, "ownershipLength"))}
             </div>
+            {askMortgageUnder5 && ownershipDq.includes(surveyData.ownershipLength) && (
+              <div className="flex flex-col gap-3 border-t border-[#E2E8F0] pt-4">
+                <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">Is there a mortgage on the property?</h2>
+                <div className="flex flex-col gap-2">
+                  {MORTGAGE_OPTIONS.map((option) => renderOptionButton(option, surveyData.mortgageStatus, "mortgageStatus"))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
