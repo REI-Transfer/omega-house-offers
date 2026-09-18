@@ -50,6 +50,9 @@ const OWNERSHIP_LENGTH_OPTIONS = [
   { id: "5-10-years", label: "5 to 10 years ago" },
   { id: "10-plus-years", label: "More than 10 years ago" },
   { id: "inherited", label: "I recently inherited it" },
+  // Omega (Mike Malek, 2026-09-18): free-and-clear properties owned under 5 years close.
+  // Not in DISQUALIFIED_OWNERSHIP_LENGTHS, so it passes like "inherited".
+  { id: "free-and-clear", label: "No Mortgage: Free & Clear" },
 ]
 
 const MORTGAGE_OPTIONS = [
@@ -108,6 +111,8 @@ const SCORE_OWNERSHIP: Record<string, number> = {
   '10-plus-years': 3, '5-10-years': 1, '3-5-years': 0, '1-3-years': 0,
   // inherited: exempt from the ownership hard-DQ; scored 3 (matches Elevate v2.51).
   'inherited': 3,
+  // free-and-clear: no mortgage = full equity; scored like inherited.
+  'free-and-clear': 3,
 }
 const SCORE_REASON: Record<string, number> = {
   'foreclosure': 3, 'behind-payments': 3,
@@ -623,7 +628,7 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
         {step === 4 && (
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">When did you purchase the home?</h2>
+              <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">If you have a mortgage, when did you purchase the home?</h2>
               <p className="mt-1 text-base text-[#5A6B7D]">This helps us estimate your equity position.</p>
             </div>
             <div className="flex flex-col gap-2">
