@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Phone, MapPin, ArrowRight } from "lucide-react";
 import { AddressAutocomplete, type AddressDetails } from "@/components/survey/address-autocomplete";
 import { SurveyCard } from "@/components/v2/survey-card";
+import { isAddressInServiceArea } from "@/lib/service-area";
 import type { Brand } from "@/lib/brand";
 
 export function Header({ brand }: { brand: Brand }) {
@@ -13,6 +14,10 @@ export function Header({ brand }: { brand: Brand }) {
   const [pastHero, setPastHero] = useState(false);
   const [address, setAddress] = useState("");
   const [showSurvey, setShowSurvey] = useState(false);
+  // Only a picked address that passed the service-area gate is handed to the
+  // survey (which treats initialAddress as already verified). Typed text or an
+  // out-of-area pick opens the survey at step 1, where the gate runs again.
+  const [addressOk, setAddressOk] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,6 +34,7 @@ export function Header({ brand }: { brand: Brand }) {
 
   const handleAddressSelect = (addr: string, details: AddressDetails) => {
     setAddress(addr);
+    setAddressOk(isAddressInServiceArea(details));
     setShowSurvey(true);
   };
 
@@ -56,7 +62,7 @@ export function Header({ brand }: { brand: Brand }) {
                 <div className="relative flex-1">
                   <AddressAutocomplete
                     value={address}
-                    onChange={setAddress}
+                    onChange={(v) => { setAddress(v); setAddressOk(false); }}
                     onSelect={handleAddressSelect}
                     placeholder="Enter your address..."
                     className="[&_input]:h-9 [&_input]:text-sm [&_input]:rounded-lg [&_input]:bg-[#F5F7FA] [&_input]:border-[#E2E8F0]"
@@ -110,7 +116,7 @@ export function Header({ brand }: { brand: Brand }) {
             >
               Close
             </button>
-            <SurveyCard initialAddress={address} brand={brand} />
+            <SurveyCard initialAddress={addressOk ? address : ""} brand={brand} />
           </div>
         </div>
       )}

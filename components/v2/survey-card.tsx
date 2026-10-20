@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { captureTrackingData, getIPAddress } from "@/lib/tracking"
 import { Input } from "@/components/ui/input"
 import { AddressAutocomplete, type AddressDetails } from "@/components/survey/address-autocomplete"
-import { isWithinServiceArea } from "@/lib/service-area"
+import { isAddressInServiceArea } from "@/lib/service-area"
 import { marketPhrase, type Brand } from "@/lib/brand"
 
 interface SurveyData {
@@ -427,9 +427,9 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
     const zip = details.zip || ""
     setSurveyData({ ...surveyData, address, city, state, zip })
 
-    // Env-driven service-area gate. Permissive when NEXT_PUBLIC_SERVICE_AREAS is
-    // empty (accepts any address). addressVerified only flips true after passing.
-    if (isWithinServiceArea(details.lat, details.lng)) {
+    // Env-driven service-area gate (circles and/or NEXT_PUBLIC_ALLOWED_COUNTIES).
+    // Permissive when both are empty. addressVerified only flips true after passing.
+    if (isAddressInServiceArea(details)) {
       setAddressVerified(true)
       setTimeout(() => { setStep(2) }, 300)
       return
