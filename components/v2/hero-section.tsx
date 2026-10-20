@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowRight, ArrowDown, Shield, Clock, DollarSign } from "lucide-react";
 import { SurveyCard } from "@/components/v2/survey-card";
 import { AddressAutocomplete, type AddressDetails } from "@/components/survey/address-autocomplete";
-import { isWithinServiceArea } from "@/lib/service-area";
+import { isAddressInServiceArea } from "@/lib/service-area";
 import { marketPhrase, type Brand } from "@/lib/brand";
 
 export function HeroSection({ brand }: { brand: Brand }) {
@@ -16,8 +16,8 @@ export function HeroSection({ brand }: { brand: Brand }) {
   const hasPhoto = !!brand.foundersPhotoUrl;
 
   const handleAddressSelect = (address: string, details: AddressDetails) => {
-    // Env-driven service-area gate. Permissive when NEXT_PUBLIC_SERVICE_AREAS is empty.
-    if (isWithinServiceArea(details.lat, details.lng)) {
+    // Env-driven service-area gate (circles and/or NEXT_PUBLIC_ALLOWED_COUNTIES).
+    if (isAddressInServiceArea(details)) {
       setInitialAddress(address);
       setAddressVerified(true);
       setOutsideAreaError(false);
