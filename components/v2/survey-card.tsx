@@ -100,6 +100,7 @@ const REASON_OPTIONS = [
 const SCORE_TIMELINE: Record<string, number> = {
   'asap': 3, '2-weeks': 2, '30-days': 1, '60-days': 0, 'flexible': 0,
 }
+const TIMELINE_NEUTRAL = 1
 // Low-intent timelines are a SOFT-DQ (like excellent condition): the lead still
 // submits and posts to the CRM, but the Meta pixel fires LeadLowIntent instead of
 // Lead. Config-driven via NEXT_PUBLIC_LOW_INTENT_TIMELINES (comma list of timeline
@@ -125,7 +126,7 @@ const SCORE_CONDITION: Record<string, number> = {
   'fair': 0, 'good': 0, 'excellent': 0,
 }
 function calculateLeadScore(d: SurveyData): number {
-  const t = SCORE_TIMELINE[d.timeline] ?? 0
+  const t = d.timeline ? (SCORE_TIMELINE[d.timeline] ?? 0) : TIMELINE_NEUTRAL
   const o = SCORE_OWNERSHIP[d.ownershipLength] ?? 0
   const r = SCORE_REASON[d.reason] ?? 0
   const c = SCORE_CONDITION[d.condition] ?? 0
@@ -259,10 +260,10 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
   }, [])
   const [honeypot, setHoneypot] = useState("")
 
-  const totalSteps = 9
+  const totalSteps = 8
 
   const handleNext = async () => {
-    if (step === 9) {
+    if (step === 8) {
       const errors: {[key: string]: string} = {}
       const firstNameCheck = validateName(surveyData.firstName)
       if (!firstNameCheck.valid) errors.firstName = firstNameCheck.msg
@@ -368,10 +369,9 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
       case 3: return surveyData.isLegalOwner !== ""
       case 4: return surveyData.ownershipLength !== "" && (!(askMortgageUnder5 && ownershipDq.includes(surveyData.ownershipLength)) || surveyData.mortgageStatus !== "")
       case 5: return surveyData.listedOnMarket !== ""
-      case 6: return surveyData.timeline !== ""
-      case 7: return surveyData.condition !== ""
-      case 8: return surveyData.reason !== ""
-      case 9: return surveyData.firstName.trim().length > 0 && surveyData.lastName.trim().length > 0 && surveyData.email.trim().length > 0 && surveyData.phone.trim().length > 0
+      case 6: return surveyData.condition !== ""
+      case 7: return surveyData.reason !== ""
+      case 8: return surveyData.firstName.trim().length > 0 && surveyData.lastName.trim().length > 0 && surveyData.email.trim().length > 0 && surveyData.phone.trim().length > 0
       default: return false
     }
   }
@@ -658,21 +658,8 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
           </div>
         )}
 
-        {/* Step 6: Timeline */}
+        {/* Step 6: Condition */}
         {step === 6 && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">How fast are you looking to sell?</h2>
-              <p className="mt-1 text-base text-[#5A6B7D]">Select your ideal timeline for closing.</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {TIMELINE_OPTIONS.map((option) => renderOptionButton(option, surveyData.timeline, "timeline"))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 7: Condition */}
-        {step === 7 && (
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">What condition is the property in?</h2>
@@ -684,8 +671,8 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
           </div>
         )}
 
-        {/* Step 8: Reason */}
-        {step === 8 && (
+        {/* Step 7: Reason */}
+        {step === 7 && (
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">What&apos;s your reason for selling?</h2>
@@ -697,8 +684,8 @@ export function SurveyCard({ initialAddress, brand }: SurveyCardProps) {
           </div>
         )}
 
-        {/* Step 9: Contact Information */}
-        {step === 9 && (
+        {/* Step 8: Contact Information */}
+        {step === 8 && (
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">Almost done. How can we reach you?</h2>
