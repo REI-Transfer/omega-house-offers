@@ -53,3 +53,23 @@ export async function getIPAddress(): Promise<string> {
     return ""
   }
 }
+
+
+// Read the GoFunnel session id captured by the tracking script, in the same
+// fallback order the script itself uses. Used by the two-step form's early
+// POST so partial leads keep GoFunnel attribution even when the gf_sid cookie
+// does not round-trip to the server (Meta in-app browser / Safari ITP).
+export function readGfSid(): string {
+  if (typeof window === "undefined") return ""
+  const w = window as unknown as { __gf_sid?: string }
+  if (w.__gf_sid) return w.__gf_sid
+  try {
+    const ls = localStorage.getItem("gf_sid")
+    if (ls) return ls
+  } catch {
+    // localStorage unavailable
+  }
+  const m = document.cookie.match(/(?:^|; )gf_sid=([^;]*)/)
+  if (m) return decodeURIComponent(m[1])
+  return new URLSearchParams(window.location.search).get("sid") || ""
+}

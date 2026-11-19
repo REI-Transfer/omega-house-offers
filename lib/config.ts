@@ -40,6 +40,15 @@ const config = {
   disqualifiedOwnershipLengths: process.env.DISQUALIFIED_OWNERSHIP_LENGTHS ?? "",
   allowedStates:   process.env.ALLOWED_STATES   ?? "",
   webhookUrl:      process.env.WEBHOOK_URL      ?? "",
+  // Demo site switch (template): never set on a client site.
+  showroom:        process.env.SHOWROOM === "1",
+  // Screen-out button: "Text Us" unless the number can't take texts (PHONE_ACCEPTS_TEXT=0 → "Call Us").
+  phoneAcceptsText: !["0", "false", "off"].includes((process.env.PHONE_ACCEPTS_TEXT ?? "").trim().toLowerCase()),
+  // Property-record form (components/v2/record-survey-card.tsx): NEXT_PUBLIC_RECORD_FORM=one-step
+  // turns it on. One-step only on this site (one post at the end, like its current form and its
+  // one-step n8n handler). Unset = this site's current form, untouched.
+  recordForm:      (process.env.NEXT_PUBLIC_RECORD_FORM ?? "").trim().toLowerCase() === "one-step" || process.env.SHOWROOM === "1",
+  recordMode:      "one-step" as "one-step" | "two-step",
 } as const
 export default config
 export type Config = typeof config
