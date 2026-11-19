@@ -12,11 +12,14 @@
 //   Stage 2 (progress bar): record found = only what the record could not answer
 //   [+ land question for a mobile home] → why selling → priority; no record = every
 //   old question → why selling → priority. The last answer posts lead_stage 'complete'.
-// ONE-STEP (all questions before contact, one post at the end, like today's one-step)
-//   address → condition → record check (/api/lookup, sends nothing) → the questions
-//   the record could not answer → why selling → priority → contact details → submit.
-//   A record screen-out (listed, property type, equity, Excellent) shows before the
-//   contact step, as today's one-step screen-outs do.
+// ONE-STEP (William 2026-11-19: contact first, one post at the end)
+//   address → condition → contact details → record check (/api/lookup, sends nothing;
+//   the last name lets the record answer the owner question) → the questions the
+//   record could not answer → why selling → [extra questions] → one post. No priority
+//   question. A record screen-out (listed, property type, equity, Excellent) shows
+//   right after the check and nothing is sent, as today's one-step screen-outs.
+//   A seller who leaves after giving contact details is still sent, once, with the
+//   answers given so far (pagehide, keepalive post).
 //
 // Screen-outs and low intent answers follow THIS client's rules (lib/form-rules.ts):
 // property types, listed, owner, years owned (no record only), Excellent, extras.
@@ -187,6 +190,8 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
   const trackingRef = useRef(captureTrackingData())
   const stage1EventIdRef = useRef<string>("")
   const completeSentRef = useRef(false)
+  // One-step: contact details are in and the lead has not been sent yet.
+  const leadPendingRef = useRef(false)
   // Set as soon as a hard-DQ answer is clicked, so a quick second click can't
   // advance (or submit) during the 300ms before the block screen appears.
   const dqPendingRef = useRef(false)
@@ -237,6 +242,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
 
   const disqualify = (reason: string) => {
     dqPendingRef.current = true
+    leadPendingRef.current = false
     setTimeout(() => { setDisqualifyReason(reason); setIsDisqualified(true) }, 300)
   }
 
@@ -280,13 +286,12 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     setSurveyData({ ...surveyData, condition: value })
     setTimeout(() => {
       if (dqPendingRef.current) return
-      if (oneStep) void runOneStepLookup(value)
-      else setStage1Step(3)
+      setStage1Step(3)
     }, 300)
   }
 
-  // One-step: check the record right after the condition answer, before any question.
-  // No contact details yet, so the owner question is always asked. Sends nothing anywhere.
+  // One-step: check the record right after the contact details, before any question.
+  // Sends nothing anywhere; the last name lets the record answer the owner question.
   const runOneStepLookup = async (condition: string) => {
     setIsSubmitting(true)
     startCheck("early")
@@ -297,7 +302,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
       const post = fetch('/api/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: surveyData.address, city: surveyData.city, state: surveyData.state, zip: surveyData.zip, condition, ...scenarioField }),
+        body: JSON.stringify({ address: surveyData.address, city: surveyData.city, state: surveyData.state, zip: surveyData.zip, lastName: surveyData.lastName.trim(), condition, ...scenarioField }),
       })
         .then((r) => r.json() as Promise<LookupAnswer>)
         .catch(() => null)
@@ -310,9 +315,10 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     if (left > 0) await wait(left)
 
     // Screened out by the record (listed, property type, equity, Excellent with no lien
-    // or motivation): shown here, before the contact step. No answer + Excellent = out, as before.
+    // or motivation): shown here, nothing sent. No answer + Excellent = out, as before.
     const excellentNoAnswer = condition === "excellent" && excellent === "dq" && !res
     if (res?.verdict === "dq" || excellentNoAnswer) {
+      leadPendingRef.current = false
       setCheckingMode(null)
       setIsSubmitting(false)
       setDisqualifyReason(res?.dq_reason || "excellentCondition")
@@ -359,10 +365,15 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     return true
   }
 
-  // One-step: the contact step is the last one; it sends the whole lead.
+  // One-step: contact details come right after the condition, then the record check.
+  // From here on the lead is sent even if the seller leaves (see the pagehide effect).
   const handleOneStepContactSubmit = () => {
     if (!contactValid()) return
-    void submitComplete(surveyData)
+    // Anti-bot: too-fast submit or honeypot tripped → fake success, nothing sent
+    if (Date.now() - formStartTime.current < 3000) { setIsSubmitted(true); return }
+    if (honeypot) { setIsSubmitted(true); return }
+    leadPendingRef.current = true
+    void runOneStepLookup(surveyData.condition)
   }
 
   const handleContactSubmit = async () => {
@@ -467,12 +478,12 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     // Land question only for clients that buy mobile homes; for the rest a mobile home
     // is screened out (on record: at the final check; answered: right away).
     const mobile = mobileHomesAllowed() && (dmMobile || d.propertyType === "mobile-home")
-    // One-step: contact details come last.
+    // One-step: contact details are in Stage 1 and there is no priority question.
     // Optional asking price, for clients whose current form asks it (NEXT_PUBLIC_EXTRA_QUESTIONS).
     const extra: Stage2Field[] = extraQuestions().includes("askingPrice") ? ["askingPrice"] : []
     // Omega: its timeline question (NEXT_PUBLIC_EXTRA_QUESTIONS=timeline), before why selling.
     const before: Stage2Field[] = extraQuestions().includes("timeline") ? ["timeline"] : []
-    const tail: Stage2Field[] = oneStep ? [...before, "reason", "priority", ...extra, "contact"] : [...before, "reason", "priority", ...extra]
+    const tail: Stage2Field[] = oneStep ? [...before, "reason", ...extra] : [...before, "reason", "priority", ...extra]
     // Omega: an under-5 years-owned answer is followed by the mortgage question, as today.
     const mortgage: Stage2Field[] = ownershipMortgageRule(d.ownershipLength, "") === "ask" ? ["mortgageStatus"] : []
     if (!dmMatched) {
@@ -511,7 +522,8 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
 
   // Final submit: the server checks the record again (same house: no new credit)
   // and returns the verdict; scoring/payload/redirect are otherwise unchanged.
-  const submitComplete = async (finalData: SurveyData) => {
+  // leaving = one-step seller leaving the page: post with keepalive and stop (no screens).
+  const submitComplete = async (finalData: SurveyData, leaving = false) => {
     if (completeSentRef.current || dqPendingRef.current) return
 
     // Anti-bot (same guards the one-step form runs on its final submit)
@@ -520,8 +532,11 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     if (honeypot) { setIsSubmitted(true); return }
 
     completeSentRef.current = true
-    setIsSubmitting(true)
-    startCheck("final")
+    leadPendingRef.current = false
+    if (!leaving) {
+      setIsSubmitting(true)
+      startCheck("final")
+    }
     const checkStart = Date.now()
 
     let verdict: Verdict = "fallback"
@@ -564,13 +579,16 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
       const post = fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(leaving ? { ...payload, left_form_early: true } : payload),
+        keepalive: leaving,
       })
         .then(async (res) => {
           const json = await res.json().catch(() => ({}))
           return { ok: res.ok, json: json as { success?: boolean; verdict?: Verdict; dq_reason?: string | null; lead_score?: number; demo?: DemoInfo | null } }
         })
         .catch(() => null)
+      // Leaving the page: the post is on its way (keepalive); nothing else can run.
+      if (leaving) return
       const res = await Promise.race([post, new Promise<null>((resolve) => setTimeout(() => resolve(null), CHECK_MAX_MS))])
       submitOk = !!res && res.ok && res.json.success === true
       if (res?.json.verdict) verdict = res.json.verdict
@@ -618,6 +636,22 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     await fillBar()
     goToThankYou(finalData)
   }
+
+  // One-step: a seller who leaves after the contact details is still sent, once, with the
+  // answers given so far. No pixel event (the page is gone); the server still checks the
+  // record and never forwards a record screen-out.
+  const leaveRef = useRef({ surveyData, reasonDraft, submitComplete })
+  leaveRef.current = { surveyData, reasonDraft, submitComplete }
+  useEffect(() => {
+    if (!oneStep) return
+    const onLeave = () => {
+      if (!leadPendingRef.current || completeSentRef.current || dqPendingRef.current) return
+      const { surveyData: d, reasonDraft: draft, submitComplete: send } = leaveRef.current
+      void send({ ...d, reasonDetails: d.reasonDetails ?? draft.trim() }, true)
+    }
+    window.addEventListener('pagehide', onLeave)
+    return () => window.removeEventListener('pagehide', onLeave)
+  }, [oneStep])
 
   const DQ_LABEL: Partial<Record<Stage2Field, string>> = {
     isLegalOwner: "notOwner", listedOnMarket: "listed", propertyType: "propertyType",
@@ -817,7 +851,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     </label>
   )
 
-  // Contact details: Stage 1 step 3 (two-step) or the last Stage 2 step (one-step).
+  // Contact details: Stage 1 step 3 (both versions).
   const contactStep = (
             <div className="flex flex-col gap-4">
               <div>
@@ -1009,7 +1043,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
           {stage1Step !== 1 && (
             <div className="flex items-center justify-between">
               {backButton(handleStage1Back, isSubmitting)}
-              {stage1Step === STAGE1_STEPS && contactSubmitButton(handleContactSubmit)}
+              {stage1Step === STAGE1_STEPS && contactSubmitButton(oneStep ? handleOneStepContactSubmit : handleContactSubmit)}
             </div>
           )}
         </div>

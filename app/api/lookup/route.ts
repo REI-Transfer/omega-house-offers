@@ -28,7 +28,9 @@ export async function POST(request: Request) {
     const input: LookupInput = {
       street: address.split(",")[0].trim(),
       city: data.city || parsed.city, state: data.state || parsed.state, zip: data.zip || parsed.zip,
-      lastName: "", // not known yet on the one-step form: the owner question is asked
+      // One-step sends the last name (contact details come first): the record can then
+      // answer the owner question.
+      lastName: typeof data.lastName === "string" ? data.lastName.trim() : "",
     }
     const scenario = config.showroom && typeof data.dm_scenario === "string" && data.dm_scenario in SCENARIOS ? data.dm_scenario : ""
     let dm = scenario ? await simulatedLookup(scenario, input, "") : await lookupProperty(input, {})
