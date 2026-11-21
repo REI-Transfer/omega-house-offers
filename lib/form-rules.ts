@@ -172,6 +172,11 @@ export function ruleFor(field: AnswerField, value: string): Rule {
 // How Excellent condition is handled: "dq" (screened out unless the record shows a
 // lien or motivation), "low_intent" (sent as a low intent lead) or "pass".
 export const excellentRule = (): "dq" | "low_intent" | "pass" => ruleFor("condition", "excellent") ?? "pass"
+// Excellent is always screened out, at the condition question, before contact details
+// and with no record check (William 2026-11-21, Omega: "disqualify excellent condition").
+// Turns off the "distress on record lets Excellent through" exception for this client.
+export const excellentStrict = (): boolean =>
+  process.env.NEXT_PUBLIC_EXCELLENT_STRICT === "true" && excellentRule() === "dq"
 
 // Answer options this client shows, in its own ids.
 export function optionsFor(field: "propertyType" | "isLegalOwner" | "listedOnMarket" | "ownershipLength" | "reason", base: Option[] = []): Option[] {

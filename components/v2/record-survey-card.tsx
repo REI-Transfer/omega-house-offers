@@ -33,7 +33,7 @@ import { captureTrackingData, getIPAddress, readGfSid } from "@/lib/tracking"
 import { Input } from "@/components/ui/input"
 import { AddressAutocomplete, type AddressDetails } from "@/components/survey/address-autocomplete"
 import { isAddressInServiceArea } from "@/lib/service-area"
-import { optionsFor, ruleFor, excellentRule, sellerAnswerRule, mobileHomesAllowed, extraQuestions, ownershipMortgageRule, type AnswerField } from "@/lib/form-rules"
+import { optionsFor, ruleFor, excellentRule, excellentStrict, sellerAnswerRule, mobileHomesAllowed, extraQuestions, ownershipMortgageRule, type AnswerField } from "@/lib/form-rules"
 import type { SurveyCardProps } from "@/components/v2/survey-card"
 import { PrototypePanel, DEMO_SCENARIOS, type DemoInfo } from "@/components/v2/prototype-panel"
 import {
@@ -284,6 +284,8 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
   // lets every "Excellent" seller through.
   const handleConditionSelect = (value: string) => {
     setSurveyData({ ...surveyData, condition: value })
+    // NEXT_PUBLIC_EXCELLENT_STRICT=true: Excellent is out right here, nothing sent.
+    if (value === "excellent" && excellentStrict()) { disqualify("excellentCondition"); return }
     setTimeout(() => {
       if (dqPendingRef.current) return
       setStage1Step(3)
@@ -316,7 +318,8 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
 
     // Screened out by the record (listed, property type, equity, Excellent with no lien
     // or motivation): shown here, nothing sent. No answer + Excellent = out, as before.
-    const excellentNoAnswer = condition === "excellent" && excellent === "dq" && !res
+    // An errored check ({success:false}, no verdict) is no answer too.
+    const excellentNoAnswer = condition === "excellent" && excellent === "dq" && !res?.verdict
     if (res?.verdict === "dq" || excellentNoAnswer) {
       leadPendingRef.current = false
       setCheckingMode(null)

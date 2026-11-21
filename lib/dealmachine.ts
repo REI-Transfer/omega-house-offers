@@ -9,7 +9,7 @@
 // Credits: 1 per matched house (contact_audience "none", no people lookups).
 // The address clean-up retry costs 1 more when the address is real.
 
-import { ruleFor, excellentRule, propertyTypeId, listedId, ownershipId } from "./form-rules"
+import { ruleFor, excellentRule, excellentStrict, propertyTypeId, listedId, ownershipId } from "./form-rules"
 
 const ENRICH_URL = "https://api.v2.dealmachine.com/v1/enrichment/address"
 const VALIDATE_URL = "https://api.v2.dealmachine.com/v1/addresses/validate"
@@ -152,7 +152,7 @@ export function distressSignals(r: Rec, auction_date_future: string | null): str
 export function applyConditionRule(x: LookupResult, condition: string): LookupResult {
   const rule = excellentRule()
   if (condition !== "excellent" || rule === "pass") return x
-  if (x.distress.length > 0) {
+  if (x.distress.length > 0 && !excellentStrict()) {
     const note = `Seller said EXCELLENT condition. Came through because the record shows: ${x.distress.join("; ")}`
     return { ...x, excellent_bypass: true, summary: x.summary ? `${x.summary}\n${note}` : note }
   }
