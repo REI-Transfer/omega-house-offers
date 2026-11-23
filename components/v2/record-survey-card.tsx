@@ -5,7 +5,7 @@
 // SurveyCard in survey-card.tsx); NEXT_PUBLIC_TWO_STEP_FORM picks the version:
 //
 // TWO-STEP
-//   Stage 1 (no progress bar): address → condition (4 photo cards) → contact details.
+//   Stage 1 (no progress bar): address → listed? → condition (4 photo cards) → contact details.
 //   Contact submit shows the "checking" screen, fires NO pixel event and POSTs
 //   lead_stage='early' to /api/submit, which checks the house on public records and
 //   answers { matched, is_mobile, ask, screened_out, excellent_bypass }.
@@ -13,7 +13,7 @@
 //   [+ land question for a mobile home] → why selling → priority; no record = every
 //   old question → why selling → priority. The last answer posts lead_stage 'complete'.
 // ONE-STEP (William 2026-11-19: contact first, one post at the end)
-//   address → condition → contact details → record check (/api/lookup, sends nothing;
+//   address → listed? → condition → contact details → record check (/api/lookup, sends nothing;
 //   the last name lets the record answer the owner question) → the questions the
 //   record could not answer → why selling → [extra questions] → one post. No priority
 //   question. A record screen-out (listed, property type, equity, Excellent) shows
@@ -34,7 +34,7 @@ import { trackFunnel, FORM_MODE, type FunnelStep } from "@/lib/form-funnel"
 import { Input } from "@/components/ui/input"
 import { AddressAutocomplete, type AddressDetails } from "@/components/survey/address-autocomplete"
 import { isAddressInServiceArea } from "@/lib/service-area"
-import { optionsFor, ruleFor, excellentRule, excellentStrict, sellerAnswerRule, mobileHomesAllowed, extraQuestions, ownershipMortgageRule, type AnswerField } from "@/lib/form-rules"
+import { optionsFor, ruleFor, listedAnswerId, excellentRule, excellentStrict, sellerAnswerRule, mobileHomesAllowed, extraQuestions, ownershipMortgageRule, type AnswerField } from "@/lib/form-rules"
 import type { SurveyCardProps } from "@/components/v2/survey-card"
 import { PrototypePanel, DEMO_SCENARIOS, type DemoInfo } from "@/components/v2/prototype-panel"
 import {
@@ -61,7 +61,9 @@ import {
 // loads (on hero themes the card itself only mounts after the address).
 if (typeof window !== "undefined") trackFunnel("page_view", FORM_MODE)
 
-const STAGE1_STEPS = 3 // 1=address, 2=condition, 3=contact (two-step only)
+const STAGE1_STEPS = 4 // 1=address, 2=listed, 3=condition, 4=contact
+const STEP_LISTED = 2
+const STEP_CONDITION = 3
 type Stage2Field = "isLegalOwner" | "listedOnMarket" | "propertyType" | "landOwned" | "ownershipLength" | "reason" | "priority" | "askingPrice" | "mortgageStatus" | "timeline" | "contact"
 
 // Screen-outs: lib/form-rules.ts (this client's rules). Mobile homes are not a
@@ -147,6 +149,8 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
   const [stage, setStage] = useState<1 | 2>(1)
   const [stage1Step, setStage1Step] = useState(initialAddress ? 2 : 1)
   const [stage2Step, setStage2Step] = useState(1)
+  // The listed choice tapped (the field itself holds the value this client\'s CRM gets).
+  const [listedChoice, setListedChoice] = useState("")
 
   const [surveyData, setSurveyData] = useState<SurveyData>({
     address: initialAddress || "",
@@ -266,7 +270,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     // Same env-driven service-area gate as the one-step form.
     if (isAddressInServiceArea(details)) {
       setAddressVerified(true)
-      setTimeout(() => { setStage1Step(2) }, 300)
+      setTimeout(() => { setStage1Step(STEP_LISTED) }, 300)
       return
     }
 
@@ -279,8 +283,21 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
   const [addressNotFound, setAddressNotFound] = useState(false)
   const resolvingAddress = false
   const handleAddressContinue = async () => {
-    if (surveyData.address.trim().length > 0 && addressVerified) { setStage1Step(2); return }
+    if (surveyData.address.trim().length > 0 && addressVerified) { setStage1Step(STEP_LISTED); return }
     setAddressNotFound(true)
+  }
+
+  // Listed? right after the address (William 2026-11-23). Nothing has been sent yet, so a
+  // listed answer this client screens out just ends the form. The record still checks it.
+  const handleListedSelect = (choice: string) => {
+    const value = listedAnswerId(choice)
+    setListedChoice(choice)
+    setSurveyData({ ...surveyData, listedOnMarket: value })
+    if (ruleFor("listedOnMarket", value) === "dq") { disqualify("listed"); return }
+    setTimeout(() => {
+      if (dqPendingRef.current) return
+      setStage1Step(STEP_CONDITION)
+    }, 300)
   }
 
   // Condition is answered before contact. "Excellent" is no longer screened out
@@ -293,7 +310,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     if (value === "excellent" && excellentStrict()) { disqualify("excellentCondition"); return }
     setTimeout(() => {
       if (dqPendingRef.current) return
-      setStage1Step(3)
+      setStage1Step(STAGE1_STEPS)
     }, 300)
   }
 
@@ -418,7 +435,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
         zip: surveyData.zip,
         condition: surveyData.condition,
         isLegalOwner: "",
-        listedOnMarket: "",
+        listedOnMarket: surveyData.listedOnMarket,
         tcpa_consent: tcpaConsent,
         source: `${leadSource} (Stage 1)`,
         submittedAt: new Date().toISOString(),
@@ -495,7 +512,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     // Omega: an under-5 years-owned answer is followed by the mortgage question, as today.
     const mortgage: Stage2Field[] = ownershipMortgageRule(d.ownershipLength, "") === "ask" ? ["mortgageStatus"] : []
     if (!dmMatched) {
-      return ["listedOnMarket", "propertyType", ...(mobile ? ["landOwned" as const] : []), "ownershipLength", ...mortgage, ...tail]
+      return ["propertyType", ...(mobile ? ["landOwned" as const] : []), "ownershipLength", ...mortgage, ...tail]
     }
     return [
       ...(dmAsk.includes("propertyType") ? ["propertyType" as const] : []),
@@ -823,7 +840,7 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     // submits are counted in goToThankYou, right before the redirect.
     if (isSubmitted) return
     if (checkingMode) return trackFunnel(checkingMode === "early" ? "record_check" : "final_check", mode)
-    if (stage === 1) return trackFunnel(stage1Step === 1 ? "address" : stage1Step === 2 ? "condition" : "contact", mode)
+    if (stage === 1) return trackFunnel(stage1Step === 1 ? "address" : stage1Step === STEP_LISTED ? "listedOnMarket" : stage1Step === STEP_CONDITION ? "condition" : "contact", mode)
     if (funnelField) trackFunnel(funnelField as FunnelStep, mode)
   }, [isDisqualified, isSubmitted, checkingMode, stage, stage1Step, funnelField, disqualifyReason, oneStep])
 
@@ -1028,8 +1045,23 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
             </div>
           )}
 
-          {/* Step 2: Condition, 4 photo cards */}
-          {stage1Step === 2 && (
+          {/* Step 2: Listed? */}
+
+          {stage1Step === STEP_LISTED && renderQuestion(
+
+            "Is the property currently listed for sale?",
+
+            "Let us know if it's on the market right now.",
+
+            optionsFor("listedOnMarket").map((o) => renderOptionButton(o, listedChoice, () => handleListedSelect(o.id)))
+
+          )}
+
+          
+
+          {/* Step 3: Condition, 4 photo cards */}
+
+          {stage1Step === STEP_CONDITION && (
             <div className="flex flex-col gap-4">
               <div>
                 <h2 className="text-xl md:text-2xl font-semibold text-[#0F1D2F]">What condition is the property in?</h2>
