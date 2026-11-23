@@ -490,10 +490,9 @@ export function RecordSurveyCard({ initialAddress, brand, mode = "two-step" }: S
     // Omega: an under-5 years-owned answer is followed by the mortgage question, as today.
     const mortgage: Stage2Field[] = ownershipMortgageRule(d.ownershipLength, "") === "ask" ? ["mortgageStatus"] : []
     if (!dmMatched) {
-      return ["isLegalOwner", "listedOnMarket", "propertyType", ...(mobile ? ["landOwned" as const] : []), "ownershipLength", ...mortgage, ...tail]
+      return ["listedOnMarket", "propertyType", ...(mobile ? ["landOwned" as const] : []), "ownershipLength", ...mortgage, ...tail]
     }
     return [
-      ...(dmAsk.includes("isLegalOwner") ? ["isLegalOwner" as const] : []),
       ...(dmAsk.includes("propertyType") ? ["propertyType" as const] : []),
       ...(mobile ? ["landOwned" as const] : []),
       ...(dmAsk.includes("ownershipLength") ? ["ownershipLength" as const, ...mortgage] : []),
